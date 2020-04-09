@@ -845,6 +845,108 @@ var _ = Describe("K8sServicesTest", func() {
 					res = kubectl.CiliumExec(pod, "cilium bpf nat list | grep 64000")
 					res.ExpectFail("NAT entry was not evicted")
 				})
+
+				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with XDP, direct routing and DSR", func() {
+					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+						"global.nodePort.acceleration": "testing-only",
+						"global.nodePort.mode":         "dsr",
+						"global.tunnel":                "disabled",
+						"global.autoDirectNodeRoutes":  "true",
+					})
+
+					var data v1.Service
+					err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
+					Expect(err).Should(BeNil(), "Cannot retrieve service")
+					_, k8s1IP := getNodeInfo(helpers.K8s1)
+
+					httpURL := getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort)
+					tftpURL := getTFTPLink(k8s1IP, data.Spec.Ports[1].NodePort)
+
+					// Test from external connectivity
+					doRequestsFromThirdHost(httpURL, 10, true)
+					doRequestsFromThirdHost(tftpURL, 10, true)
+					// Make sure all the rest works as expected under XDP
+					testNodePort(true)
+
+					// Clear CT tables on both Cilium nodes
+					pod, err := kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, helpers.K8s1)
+					Expect(err).Should(BeNil(), "Cannot determine cilium pod name")
+					res := kubectl.CiliumExec(pod, "cilium bpf ct flush global")
+					res.ExpectSuccess("Unable to flush CT maps")
+
+					pod, err = kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, helpers.K8s2)
+					Expect(err).Should(BeNil(), "Cannot determine cilium pod name")
+					res = kubectl.CiliumExec(pod, "cilium bpf ct flush global")
+					res.ExpectSuccess("Unable to flush CT maps")
+				})
+
+				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with XDP, direct routing and SNAT", func() {
+					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+						"global.nodePort.acceleration": "testing-only",
+						"global.nodePort.mode":         "snat",
+						"global.tunnel":                "disabled",
+						"global.autoDirectNodeRoutes":  "true",
+					})
+
+					var data v1.Service
+					err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
+					Expect(err).Should(BeNil(), "Cannot retrieve service")
+					_, k8s1IP := getNodeInfo(helpers.K8s1)
+
+					httpURL := getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort)
+					tftpURL := getTFTPLink(k8s1IP, data.Spec.Ports[1].NodePort)
+
+					// Test from external connectivity
+					doRequestsFromThirdHost(httpURL, 10, true)
+					doRequestsFromThirdHost(tftpURL, 10, true)
+					// Make sure all the rest works as expected under XDP
+					testNodePort(true)
+
+					// Clear CT tables on both Cilium nodes
+					pod, err := kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, helpers.K8s1)
+					Expect(err).Should(BeNil(), "Cannot determine cilium pod name")
+					res := kubectl.CiliumExec(pod, "cilium bpf ct flush global")
+					res.ExpectSuccess("Unable to flush CT maps")
+
+					pod, err = kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, helpers.K8s2)
+					Expect(err).Should(BeNil(), "Cannot determine cilium pod name")
+					res = kubectl.CiliumExec(pod, "cilium bpf ct flush global")
+					res.ExpectSuccess("Unable to flush CT maps")
+				})
+
+				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with XDP, direct routing and Hybrid", func() {
+					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+						"global.nodePort.acceleration": "testing-only",
+						"global.nodePort.mode":         "hybrid",
+						"global.tunnel":                "disabled",
+						"global.autoDirectNodeRoutes":  "true",
+					})
+
+					var data v1.Service
+					err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
+					Expect(err).Should(BeNil(), "Cannot retrieve service")
+					_, k8s1IP := getNodeInfo(helpers.K8s1)
+
+					httpURL := getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort)
+					tftpURL := getTFTPLink(k8s1IP, data.Spec.Ports[1].NodePort)
+
+					// Test from external connectivity
+					doRequestsFromThirdHost(httpURL, 10, true)
+					doRequestsFromThirdHost(tftpURL, 10, true)
+					// Make sure all the rest works as expected under XDP
+					testNodePort(true)
+
+					// Clear CT tables on both Cilium nodes
+					pod, err := kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, helpers.K8s1)
+					Expect(err).Should(BeNil(), "Cannot determine cilium pod name")
+					res := kubectl.CiliumExec(pod, "cilium bpf ct flush global")
+					res.ExpectSuccess("Unable to flush CT maps")
+
+					pod, err = kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, helpers.K8s2)
+					Expect(err).Should(BeNil(), "Cannot determine cilium pod name")
+					res = kubectl.CiliumExec(pod, "cilium bpf ct flush global")
+					res.ExpectSuccess("Unable to flush CT maps")
+				})
 			})
 	})
 
